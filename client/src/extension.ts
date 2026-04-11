@@ -77,6 +77,50 @@ const updateDiagnostics = debounce((document: TextDocument, collection: Diagnost
     if (!analyzeResult) {
         collection.delete(document.uri);
         if (analyzeResult === false) {
+            const typo3Version = detectTypo3Version(document);
+            if (typo3Version === 12 || typo3Version === 13) {
+                vscode.window.showInformationMessage(
+                    `To be able to provide live analysis for Fluid templates in TYPO3 ${typo3Version}, a companion TYPO3 extension needs to be installed.`,
+                    { identifier: 'more', title: 'Learn more' },
+                    { identifier: 'disable', title: 'Disable for workspace' },
+                ).then(userOption => {
+                    switch (userOption?.identifier) {
+                        case 'more':
+                            vscode.env.openExternal(
+                                vscode.Uri.parse('https://extensions.typo3.org/extension/fluid_companion'),
+                            );
+                            break;
+
+                        case 'disable':
+                            vscode.workspace.getConfiguration('fluid.features').update(
+                                'liveTemplateAnalysis',
+                                false,
+                                vscode.ConfigurationTarget.Workspace
+                            );
+                            break;
+                    }
+                });
+                return;
+            }
+
+            if (typo3Version && typo3Version < 12) {
+                vscode.window.showInformationMessage(
+                    `Live analysis for Fluid templates is not compatible with TYPO3 ${typo3Version}.`,
+                    { identifier: 'disable', title: 'Disable for workspace' },
+                ).then(userOption => {
+                    switch (userOption?.identifier) {
+                        case 'disable':
+                            vscode.workspace.getConfiguration('fluid.features').update(
+                                'liveTemplateAnalysis',
+                                false,
+                                vscode.ConfigurationTarget.Workspace
+                            );
+                            break;
+                    }
+                });
+                return;
+            }
+
             logChannel.info('Try increasing the log level to "debug" to get more information about the issue.');
             vscode.window.showInformationMessage(
                 'Unable to provide live analysis for Fluid templates in this workspace.',
@@ -209,6 +253,52 @@ function analyzeTemplate(document: TextDocument): TemplateValidatorResult|null|f
     const unavailableBinaries = candidates.map(candidate => [candidate.command, ...candidate.args].join(' ')).join("\n");
     logChannel.error(`Unable to find suitable fluid binary for templates in "${workspaceFolder}. Usual binaries are not available: \n${unavailableBinaries}`)
     return false;
+}
+
+function detectTypo3Version(document: TextDocument): number|null
+{
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri)?.uri.fsPath;
+    if (!workspaceFolder) {
+        return null;
+    }
+
+    // Go through binary alternatives to find the best candidate
+    const candidates: BinaryCommand[] = [];
+    const isDdevProject = config.bin.useDdevIfAvailable ? fs.existsSync(path.join(workspaceFolder, '.ddev')) : false;
+    const ddev = isDdevProject ? spawnSync('which', ['ddev'], { shell: true }).stdout.toString().trim() : '';
+
+    // TODO optimize this to avoid duplicate calls to non-existent binaries
+    if (config.bin.typo3) {
+        candidates.push({
+            command: config.bin.typo3.replaceAll('${workspaceFolder}', workspaceFolder),
+            args: ['--version'],
+            userDefined: true,
+        });
+    }
+    if (isDdevProject && ddev) {
+        candidates.push({
+            command: ddev,
+            args: ['typo3', '--version'],
+        });
+    }
+    for (const typo3Binary of ['vendor/bin/typo3', 'bin/typo3', '.Build/bin/typo3']) {
+        candidates.push({
+            command: path.join(workspaceFolder, typo3Binary),
+            args: ['--version'],
+        });
+    }
+    for (const candidate of candidates) {
+        const process = spawnSync(candidate.command, candidate.args);
+        if (!process.stdout) {
+            continue;
+        }
+        const versionOutput = process.stdout?.toString() ?? '';
+        const versionMatch = versionOutput.match(/TYPO3 CMS ([0-9]+)\.[0-9]+\.[0-9]+/);
+        if (versionMatch && versionMatch[1]) {
+            return Number(versionMatch[1]);
+        }
+    }
+    return null;
 }
 
 function tryAndVerifyAnalyzeCommand(command: BinaryCommand, input: string, cwd: string): TemplateValidatorResult|null {

@@ -25,7 +25,7 @@ It has been tested with:
 |:----------------------------------|:---------------:|:------------------:|
 | Syntax Highlighting               | ✅              | ✅                 |
 | Code Snippets                     | ✅              | ✅                 |
-| Live Template Analysis            | ✅               | ✅                 |
+| Live Template Analysis            | ✅              | ✅                 |
 | HTML Language Features            | ✅              | -                  |
 | ViewHelper Autocomplete (tags)    | *only built-in* | -                  |
 | ViewHelper Documentation (tags)   | *only built-in* | -                  |
@@ -35,9 +35,13 @@ It has been tested with:
 ### Live Template Analysis
 
 The extension is able to utilize available binaries in your project to provide live
-template analysis for Fluid templates, e. g. for detecting syntax errors or deprecations.
-This works out-of-the-box for Fluid 5.3 (or higher) and TYPO3 14.3 (or higher). The
-following folders are checked for the `fluid` and `typo3` binaries:
+template analysis for Fluid templates, e. g. to detect syntax errors or deprecations.
+This works out-of-the-box for Fluid 5.3 (or higher) and TYPO3 14.3 (or higher). In older
+TYPO3 versions the
+[companion extension](https://extensions.typo3.org/extension/fluid_companion) needs to
+be installed.
+
+The following folders are checked for the `fluid` and `typo3` binaries:
 
 * `vendor/bin/`
 * `bin/`
@@ -53,9 +57,6 @@ Custom paths to the binaries can also be specified in the extension's configurat
 `fluid.bin.typo3` and `fluid.bin.fluid`. `${workspaceFolder}` is substituted with the
 path of the current workplace folder. Apart from that, these are currently **not**
 preprocessed, so be extra careful.
-
-Compatibility with older versions of TYPO3 might still be feasible, but this is not
-implemented yet.
 
 ### ViewHelper Autocomplete & Documentation
 
