@@ -21,7 +21,7 @@
     },
     "switch": {
         "prefix": ["f:switch", "fswitch"],
-        "body": ["<f:switch expression=\"{${1:expression}}\">", "\t<f:case value=\"${2:value}\">${3:case}</f:case>", "\t$0", "\t<f:defaultCase>${4:default}</f:defaultCase>", "</f:alias>"]
+        "body": ["<f:switch expression=\"{${1:expression}}\">", "\t<f:case value=\"${2:value}\">${3:case}</f:case>", "\t$0", "\t<f:defaultCase>${4:default}</f:defaultCase>", "</f:switch>"]
     },
     "render partial": {
         "prefix": ["f:renderpartial", "frpartial", "fpartial", "frpartial"],
