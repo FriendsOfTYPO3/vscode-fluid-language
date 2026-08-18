@@ -1,5 +1,10 @@
 # Change Log
 
+## Unreleased
+
+- Go to Definition for ViewHelpers, resolving tag and inline syntax to the
+  implementing PHP class without executing any binary
+
 ## 1.0.0
 
 - Initial release

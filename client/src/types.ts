@@ -50,5 +50,22 @@ export interface ExtensionConfiguration {
     },
     features: {
         liveTemplateAnalysis: boolean,
+        viewHelperDefinitions: boolean,
     },
+}
+
+export interface ViewHelperReference {
+    alias: string,
+    name: string,
+    start: number,
+    end: number,
+}
+
+export interface ViewHelperIndex {
+    /** ViewHelper namespace alias, e.g. "f", to the PHP namespaces registered for it */
+    namespaces: Map<string, string[]>,
+    /** PSR-4 prefixes with their directories, longest prefix first */
+    psr4: [string, string[]][],
+    /** Resolved class name to file, null when the class does not exist */
+    classFiles: Map<string, string|null>,
 }

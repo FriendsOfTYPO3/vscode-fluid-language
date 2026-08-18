@@ -31,6 +31,28 @@ It has been tested with:
 | ViewHelper Documentation (tags)   | *only built-in* | -                  |
 | ViewHelper Autocomplete (inline)  | -               | -                  |
 | ViewHelper Documentation (inline) | -               | -                  |
+| ViewHelper Go to Definition       | ✅              | ✅                 |
+
+### ViewHelper Go to Definition
+
+*Go to Definition* on a ViewHelper opens the PHP class that implements it, in
+tag as well as in inline syntax, and for your own ViewHelpers just as well as
+for built-in ones:
+
+```html
+<f:link.action action="show" />   <!-- Link/ActionViewHelper.php -->
+{title -> f:format.nl2br()}       <!-- Format/Nl2brViewHelper.php -->
+<my:teaser record="{record}" />   <!-- your own ViewHelper -->
+```
+
+The ViewHelper namespaces of a project are read from every package's
+`Configuration/Fluid/Namespaces.php`, from the `$GLOBALS['TYPO3_CONF_VARS']`
+registration in `ext_localconf.php`, and from the `xmlns:` and `{namespace}`
+declarations of the template itself. Classes are then located through
+Composer's autoload map. No binary is executed, so this also works in projects
+where live template analysis is unavailable.
+
+This feature can be turned off with `fluid.features.viewHelperDefinitions`.
 
 ### Live Template Analysis
 
