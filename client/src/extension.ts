@@ -5,6 +5,7 @@ import type { ExtensionContext, TextDocument, DiagnosticCollection, WorkspaceCon
 import * as vscode from 'vscode';
 import Ajv, { ValidateFunction } from 'ajv';
 import type { ExtensionConfiguration, BinaryCommand, TemplateValidatorResult } from './types';
+import { fluidCandidates, orderedCandidates, readableCommand, typo3Candidates } from './typo3Binary';
 
 const ajv = new Ajv();
 
@@ -85,7 +86,9 @@ const updateDiagnostics = debounce((document: TextDocument, collection: Diagnost
     if (!analyzeResult) {
         collection.delete(document.uri);
         if (analyzeResult === false) {
-            const typo3Version = detectTypo3Version(document);
+            const typo3Version = detectTypo3Version(
+                vscode.workspace.getWorkspaceFolder(document.uri)?.uri.fsPath,
+            );
             if (typo3Version === 12 || typo3Version === 13) {
                 vscode.window.showInformationMessage(
                     `To be able to provide live analysis for Fluid templates in TYPO3 ${typo3Version}, a companion TYPO3 extension needs to be installed.`,
@@ -203,112 +206,32 @@ function analyzeTemplate(document: TextDocument): TemplateValidatorResult|null|f
     }
 
     // Go through binary alternatives to find the best candidate
-    const candidates: BinaryCommand[] = [];
-    const isDdevProject = config.bin.useDdevIfAvailable ? fs.existsSync(path.join(workspaceFolder, '.ddev')) : false;
-    const ddev = isDdevProject ? spawnSync('which', ['ddev'], { shell: true }).stdout.toString().trim() : '';
-
-    if (config.bin.typo3.path) {
-        candidates.push({
-            command: config.bin.typo3.path.replaceAll('${workspaceFolder}', workspaceFolder),
-            args: [
-                ...config.bin.typo3.args.map(arg => arg.replaceAll('${workspaceFolder}', workspaceFolder)),
-                'fluid:analyze',
-                '--json',
-                '--stdin',
-            ],
-            userDefined: true,
-        });
-    }
-    if (config.bin.fluid.path) {
-        candidates.push({
-            command: config.bin.fluid.path.replaceAll('${workspaceFolder}', workspaceFolder),
-            args: [
-                ...config.bin.fluid.args.map(arg => arg.replaceAll('${workspaceFolder}', workspaceFolder)),
-                'analyze',
-                '--json',
-                '--stdin',
-            ],
-            userDefined: true,
-        });
-    }
-    if (isDdevProject && ddev) {
-        candidates.push({
-            command: ddev,
-            args: ['typo3', 'fluid:analyze', '--json', '--stdin'],
-        });
-    }
-    for (const typo3Binary of ['vendor/bin/typo3', 'bin/typo3', '.Build/bin/typo3']) {
-        candidates.push({
-            command: path.join(workspaceFolder, typo3Binary),
-            args: ['fluid:analyze', '--json', '--stdin'],
-        });
-    }
-    const fluidBinaryPaths = ['vendor/bin/fluid', 'bin/fluid', '.Build/bin/fluid'];
-    if (isDdevProject && ddev) {
-        for (const fluidBinary of fluidBinaryPaths) {
-            candidates.push({
-                command: ddev,
-                args: ['exec', fluidBinary, 'analyze', '--json', '--stdin'],
-            });
-        }
-    }
-    for (const fluidBinary of fluidBinaryPaths) {
-        candidates.push({
-            command: fluidBinary,
-            args: ['analyze', '--json', '--stdin'],
-        });
-    }
+    const candidates = orderedCandidates(
+        typo3Candidates(workspaceFolder, config, ['fluid:analyze', '--json', '--stdin']),
+        fluidCandidates(workspaceFolder, config, ['analyze', '--json', '--stdin']),
+    );
 
     for (const candidate of candidates) {
         const data = tryAndVerifyAnalyzeCommand(candidate, document.getText(), workspaceFolder);
         if (data) {
             binaryPathCache[workspaceFolder] = candidate;
-            const readableCommand = [candidate.command, ...candidate.args].join(' ');
-            logChannel.info(`Using "${readableCommand}" as binary to analyze templates in "${workspaceFolder}".`);
+            logChannel.info(
+                `Using "${readableCommand(candidate)}" as binary to analyze templates in "${workspaceFolder}".`,
+            );
             return data;
         }
     }
-    const unavailableBinaries = candidates.map(candidate => [candidate.command, ...candidate.args].join(' ')).join("\n");
+    const unavailableBinaries = candidates.map(readableCommand).join("\n");
     logChannel.error(`Unable to find suitable fluid binary for templates in "${workspaceFolder}. Usual binaries are not available: \n${unavailableBinaries}`)
     return false;
 }
 
-function detectTypo3Version(document: TextDocument): number|null
+function detectTypo3Version(workspaceFolder: string|undefined): number|null
 {
-    const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri)?.uri.fsPath;
     if (!workspaceFolder) {
         return null;
     }
-
-    // Go through binary alternatives to find the best candidate
-    const candidates: BinaryCommand[] = [];
-    const isDdevProject = config.bin.useDdevIfAvailable ? fs.existsSync(path.join(workspaceFolder, '.ddev')) : false;
-    const ddev = isDdevProject ? spawnSync('which', ['ddev'], { shell: true }).stdout.toString().trim() : '';
-
-    // TODO optimize this to avoid duplicate calls to non-existent binaries
-    if (config.bin.typo3.path) {
-        candidates.push({
-            command: config.bin.typo3.path.replaceAll('${workspaceFolder}', workspaceFolder),
-            args: [
-                ...config.bin.typo3.args.map(arg => arg.replaceAll('${workspaceFolder}', workspaceFolder)),
-                '--version',
-            ],
-            userDefined: true,
-        });
-    }
-    if (isDdevProject && ddev) {
-        candidates.push({
-            command: ddev,
-            args: ['typo3', '--version'],
-        });
-    }
-    for (const typo3Binary of ['vendor/bin/typo3', 'bin/typo3', '.Build/bin/typo3']) {
-        candidates.push({
-            command: path.join(workspaceFolder, typo3Binary),
-            args: ['--version'],
-        });
-    }
-    for (const candidate of candidates) {
+    for (const candidate of typo3Candidates(workspaceFolder, config, ['--version'])) {
         const process = spawnSync(candidate.command, candidate.args, { cwd: workspaceFolder });
         if (!process.stdout) {
             continue;
