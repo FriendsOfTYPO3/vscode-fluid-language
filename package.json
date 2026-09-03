@@ -29,6 +29,13 @@
     "vscode.html-language-features"
   ],
   "contributes": {
+    "commands": [
+      {
+        "command": "fluid.reloadViewHelperIndex",
+        "title": "Reload ViewHelper Index",
+        "category": "Fluid"
+      }
+    ],
     "configuration": {
       "title": "Fluid Templating Language",
       "type": "object",

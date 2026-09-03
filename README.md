@@ -45,12 +45,18 @@ for built-in ones:
 <my:teaser record="{record}" />   <!-- your own ViewHelper -->
 ```
 
-The ViewHelper namespaces of a project are read from every package's
-`Configuration/Fluid/Namespaces.php`, from the `$GLOBALS['TYPO3_CONF_VARS']`
-registration in `ext_localconf.php`, and from the `xmlns:` and `{namespace}`
-declarations of the template itself. Classes are then located through
-Composer's autoload map. No binary is executed, so this also works in projects
-where live template analysis is unavailable.
+The global ViewHelper namespaces of a project are read from
+`typo3 fluid:namespaces --json`, so they are exactly the namespaces that Fluid
+itself resolves, including the order in which an extension overrides a core
+ViewHelper. That command ships with TYPO3 v14.2 and is backported to v12 and
+v13 by the [companion extension](https://extensions.typo3.org/extension/fluid_companion).
+The `xmlns:` and `{namespace}` declarations of the template are added on top,
+and classes are located through Composer's autoload map.
+
+The binary is looked up exactly like the one for live template analysis, see
+below, and is executed once per workspace folder. Use *Fluid: Reload ViewHelper
+Index* from the command palette to read the namespaces again, which is needed
+after a namespace has been registered by an event listener.
 
 This feature can be turned off with `fluid.features.viewHelperDefinitions`.
 

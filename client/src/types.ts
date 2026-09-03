@@ -1,3 +1,5 @@
+import type { LogOutputChannel } from 'vscode';
+
 export interface TemplateValidatorResult {
     identifier: string,
     path: string,
@@ -59,6 +61,18 @@ export interface ViewHelperReference {
     name: string,
     start: number,
     end: number,
+}
+
+/** Raw `fluid:namespaces --json` output: each alias with its PHP namespace chain */
+export type FluidNamespaceMap = Record<string, (string|null)[]|null>;
+
+export interface ViewHelperContext {
+    isEnabled: () => boolean,
+    /** Commands that could run the given `typo3` subcommand, best candidate first */
+    candidates: (workspaceFolder: string, args: string[]) => BinaryCommand[],
+    /** Called when the ViewHelper namespaces of a workspace folder cannot be determined */
+    onUnavailable: (workspaceFolder: string) => void,
+    logChannel: LogOutputChannel,
 }
 
 export interface ViewHelperIndex {
