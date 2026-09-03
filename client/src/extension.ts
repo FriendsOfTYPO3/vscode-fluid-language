@@ -73,7 +73,7 @@ function initializeConfiguration(configuration: WorkspaceConfiguration): void {
     config.bin.fluid.args = configuration.get('bin.fluid.args') ?? [];
     config.bin.typo3.path = configuration.get('bin.typo3.path') ?? '';
     config.bin.typo3.args = configuration.get('bin.typo3.args') ?? [];
-    config.bin.useDdevIfAvailable = configuration.get('useDdevIfAvailable') ?? true;
+    config.bin.useDdevIfAvailable = configuration.get('bin.useDdevIfAvailable') ?? true;
     config.features.liveTemplateAnalysis = configuration.get('features.liveTemplateAnalysis') ?? true;
 }
 
