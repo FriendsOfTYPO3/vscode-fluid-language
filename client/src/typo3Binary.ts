@@ -1,7 +1,7 @@
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { BinaryCommand, ExtensionConfiguration } from './types';
+import type { BinaryCommand, CommandResult, ExtensionConfiguration } from './types';
 
 const TYPO3_BINARIES = ['vendor/bin/typo3', 'bin/typo3', '.Build/bin/typo3'];
 const FLUID_BINARIES = ['vendor/bin/fluid', 'bin/fluid', '.Build/bin/fluid'];
@@ -51,6 +51,51 @@ export function binaryCandidates(
 
 export function readableCommand(command: BinaryCommand): string {
     return [command.command, ...command.args].join(' ');
+}
+
+/**
+ * Runs a command without blocking the extension host. Never rejects: a missing
+ * binary, a crash and a timeout all surface as an unsuccessful result.
+ *
+ * @param input Passed to the command via stdin. Without it, stdin is closed right
+ *              away, so that a command asking a question fails instead of hanging.
+ */
+export function runCommand(
+    command: BinaryCommand,
+    cwd: string,
+    timeout: number,
+    input?: string,
+): Promise<CommandResult> {
+    return new Promise(resolve => {
+        let child;
+        try {
+            child = spawn(command.command, command.args, { cwd, stdio: 'pipe' });
+        } catch (error) {
+            resolve({ stdout: '', stderr: String(error), status: null });
+            return;
+        }
+        let stdout = '';
+        let stderr = '';
+        child.stdout.on('data', chunk => stdout += chunk.toString());
+        child.stderr.on('data', chunk => stderr += chunk.toString());
+        // A command that exits without reading its input closes the pipe early,
+        // which surfaces through its exit code rather than as a write error.
+        child.stdin.on('error', () => {});
+        child.stdin.end(input);
+        const timer = setTimeout(() => {
+            stderr += `Command did not finish within ${timeout} ms.`;
+            child.kill();
+        }, timeout);
+        const finish = (status: number|null) => {
+            clearTimeout(timer);
+            resolve({ stdout, stderr, status });
+        };
+        child.on('error', error => {
+            stderr += String(error);
+            finish(null);
+        });
+        child.on('close', status => finish(status));
+    });
 }
 
 /** The ddev binary to use for a workspace folder, if the project has DDEV set up. */
