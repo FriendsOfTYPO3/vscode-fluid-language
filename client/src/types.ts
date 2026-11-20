@@ -28,13 +28,6 @@ export interface BinaryCommand {
     userDefined?: boolean
 }
 
-export interface CommandResult {
-    stdout: string,
-    stderr: string,
-    /** Exit code, or null when the command could not be executed at all */
-    status: number|null,
-}
-
 export interface ExtensionConfiguration {
     bin: {
         typo3: {

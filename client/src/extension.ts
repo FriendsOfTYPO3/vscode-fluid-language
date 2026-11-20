@@ -5,7 +5,7 @@ import type { ExtensionContext, TextDocument, DiagnosticCollection, WorkspaceCon
 import * as vscode from 'vscode';
 import Ajv, { ValidateFunction } from 'ajv';
 import type { ExtensionConfiguration, BinaryCommand, TemplateValidatorResult } from './types';
-import { fluidCandidates, orderedCandidates, readableCommand, typo3Candidates } from './typo3Binary';
+import { binaryCandidates, readableCommand } from './typo3Binary';
 
 const ajv = new Ajv();
 
@@ -86,9 +86,7 @@ const updateDiagnostics = debounce((document: TextDocument, collection: Diagnost
     if (!analyzeResult) {
         collection.delete(document.uri);
         if (analyzeResult === false) {
-            const typo3Version = detectTypo3Version(
-                vscode.workspace.getWorkspaceFolder(document.uri)?.uri.fsPath,
-            );
+            const typo3Version = detectTypo3Version(document);
             if (typo3Version === 12 || typo3Version === 13) {
                 vscode.window.showInformationMessage(
                     `To be able to provide live analysis for Fluid templates in TYPO3 ${typo3Version}, a companion TYPO3 extension needs to be installed.`,
@@ -206,10 +204,10 @@ function analyzeTemplate(document: TextDocument): TemplateValidatorResult|null|f
     }
 
     // Go through binary alternatives to find the best candidate
-    const candidates = orderedCandidates(
-        typo3Candidates(workspaceFolder, config, ['fluid:analyze', '--json', '--stdin']),
-        fluidCandidates(workspaceFolder, config, ['analyze', '--json', '--stdin']),
-    );
+    const candidates = binaryCandidates(workspaceFolder, config, {
+        typo3: ['fluid:analyze', '--json', '--stdin'],
+        fluid: ['analyze', '--json', '--stdin'],
+    });
 
     for (const candidate of candidates) {
         const data = tryAndVerifyAnalyzeCommand(candidate, document.getText(), workspaceFolder);
@@ -226,12 +224,16 @@ function analyzeTemplate(document: TextDocument): TemplateValidatorResult|null|f
     return false;
 }
 
-function detectTypo3Version(workspaceFolder: string|undefined): number|null
+function detectTypo3Version(document: TextDocument): number|null
 {
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri)?.uri.fsPath;
     if (!workspaceFolder) {
         return null;
     }
-    for (const candidate of typo3Candidates(workspaceFolder, config, ['--version'])) {
+
+    // Go through binary alternatives to find the best candidate
+    // TODO optimize this to avoid duplicate calls to non-existent binaries
+    for (const candidate of binaryCandidates(workspaceFolder, config, { typo3: ['--version'] })) {
         const process = spawnSync(candidate.command, candidate.args, { cwd: workspaceFolder });
         if (!process.stdout) {
             continue;
