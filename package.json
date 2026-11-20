@@ -74,6 +74,13 @@
           "order": 6,
           "default": [],
           "markdownDescription": "Arguments to prepend in each call to the custom Fluid binary. Only necessary for custom project setups. `${workspaceFolder}` is substituted with the path of the current workplace folder."
+        },
+        "fluid.bin.timeout": {
+          "type": "number",
+          "order": 7,
+          "default": 10,
+          "minimum": 1,
+          "markdownDescription": "Seconds to wait for a `typo3` or `fluid` binary to answer before giving up. Increase this if the first call to a project, e. g. a DDEV project that has just been started, takes longer."
         }
       }
     },

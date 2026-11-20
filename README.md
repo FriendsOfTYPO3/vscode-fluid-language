@@ -53,6 +53,10 @@ If [DDEV](https://ddev.com/) is available and the project has DDEV set up, the b
 are executed inside of the web container by default. This can be turned off by disabling
 `fluid.bin.useDdevIfAvailable` in the extension's configuration.
 
+A binary that does not answer within 10 seconds is given up on. If the first call to a
+project regularly takes longer, e. g. because DDEV needs to start up, increase
+`fluid.bin.timeout`.
+
 If necessary, custom binaries can also be specified in the extension's configuration via
 `fluid.bin.typo3.*` and `fluid.bin.fluid.*`. `${workspaceFolder}` is substituted with the
 path of the current workplace folder. Example (execute `fluid` within anonymous docker container):
