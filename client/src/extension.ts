@@ -5,7 +5,7 @@ import type { ExtensionContext, TextDocument, DiagnosticCollection, WorkspaceCon
 import * as vscode from 'vscode';
 import Ajv, { ValidateFunction } from 'ajv';
 import type { ExtensionConfiguration, BinaryCommand, TemplateValidatorResult, ViewHelperContext } from './types';
-import { fluidCandidates, orderedCandidates, readableCommand, typo3Candidates } from './typo3Binary';
+import { binaryCandidates, readableCommand } from './typo3Binary';
 import { clearViewHelperIndexCache, createViewHelperDefinitionProvider, warmViewHelperIndex } from './viewHelpers';
 
 const FLUID_LANGUAGES = ['fluid', 'html-fluid'];
@@ -60,7 +60,7 @@ export async function activate(ctx: ExtensionContext) {
     // Register go to definition for ViewHelpers
     viewHelperContext = {
         isEnabled: () => config.features.viewHelperDefinitions,
-        candidates: (workspaceFolder, args) => typo3Candidates(workspaceFolder, config, args),
+        candidates: (workspaceFolder, args) => binaryCandidates(workspaceFolder, config, { typo3: args }),
         onUnavailable: reportViewHelperNamespacesUnavailable,
         logChannel,
     };
@@ -315,10 +315,10 @@ function analyzeTemplate(document: TextDocument): TemplateValidatorResult|null|f
     }
 
     // Go through binary alternatives to find the best candidate
-    const candidates = orderedCandidates(
-        typo3Candidates(workspaceFolder, config, ['fluid:analyze', '--json', '--stdin']),
-        fluidCandidates(workspaceFolder, config, ['analyze', '--json', '--stdin']),
-    );
+    const candidates = binaryCandidates(workspaceFolder, config, {
+        typo3: ['fluid:analyze', '--json', '--stdin'],
+        fluid: ['analyze', '--json', '--stdin'],
+    });
 
     for (const candidate of candidates) {
         const data = tryAndVerifyAnalyzeCommand(candidate, document.getText(), workspaceFolder);
@@ -340,7 +340,10 @@ function detectTypo3Version(workspaceFolder: string|undefined): number|null
     if (!workspaceFolder) {
         return null;
     }
-    for (const candidate of typo3Candidates(workspaceFolder, config, ['--version'])) {
+
+    // Go through binary alternatives to find the best candidate
+    // TODO optimize this to avoid duplicate calls to non-existent binaries
+    for (const candidate of binaryCandidates(workspaceFolder, config, { typo3: ['--version'] })) {
         const process = spawnSync(candidate.command, candidate.args, { cwd: workspaceFolder });
         if (!process.stdout) {
             continue;
