@@ -1,13 +1,25 @@
-import { spawnSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { ExtensionContext, TextDocument, DiagnosticCollection, WorkspaceConfiguration, LogOutputChannel } from 'vscode';
 import * as vscode from 'vscode';
 import Ajv, { ValidateFunction } from 'ajv';
 import type { ExtensionConfiguration, BinaryCommand, TemplateValidatorResult } from './types';
-import { binaryCandidates, readableCommand } from './typo3Binary';
+import { binaryCandidates, readableCommand, runCommand } from './typo3Binary';
 
 const ajv = new Ajv();
+
+/**
+ * Binaries are run on every pause while typing, so a hanging one must not block
+ * analysis forever. A cold DDEV project can take a while to answer the first call.
+ */
+const BINARY_TIMEOUT = 30000;
+
+/** Binary found for a workspace folder, together with the analysis that proved it works */
+interface AnalyzeBinaryDiscovery {
+    command: BinaryCommand,
+    input: string,
+    result: TemplateValidatorResult,
+}
 
 const config: ExtensionConfiguration = {
     bin: {
@@ -26,6 +38,7 @@ const config: ExtensionConfiguration = {
     }
 }
 let binaryPathCache: { [key: string]: BinaryCommand} = {};
+const binaryDiscoveries = new Map<string, Promise<AnalyzeBinaryDiscovery|null>>();
 let validateFluidAnalyzeResult: ValidateFunction<TemplateValidatorResult>;
 let diagnosticCollection: DiagnosticCollection;
 let logChannel: LogOutputChannel;
@@ -47,6 +60,7 @@ export async function activate(ctx: ExtensionContext) {
             initializeConfiguration(vscode.workspace.getConfiguration('fluid'));
             // Clear runtime cache on configuration changes
             binaryPathCache = {};
+            binaryDiscoveries.clear();
         }
     }));
 
@@ -78,15 +92,20 @@ function initializeConfiguration(configuration: WorkspaceConfiguration): void {
 }
 
 // TODO consider debouncing per document
-const updateDiagnostics = debounce((document: TextDocument, collection: DiagnosticCollection) => {
+const updateDiagnostics = debounce(async (document: TextDocument, collection: DiagnosticCollection) => {
     if (!vscode.workspace.isTrusted || !config.features.liveTemplateAnalysis) {
         return;
     }
-    const analyzeResult = analyzeTemplate(document);
+    const version = document.version;
+    const analyzeResult = await analyzeTemplate(document);
+    // The document has changed in the meantime, a newer analysis is already on its way
+    if (document.version !== version) {
+        return;
+    }
     if (!analyzeResult) {
         collection.delete(document.uri);
         if (analyzeResult === false) {
-            const typo3Version = detectTypo3Version(document);
+            const typo3Version = await detectTypo3Version(document);
             if (typo3Version === 12 || typo3Version === 13) {
                 vscode.window.showInformationMessage(
                     `To be able to provide live analysis for Fluid templates in TYPO3 ${typo3Version}, a companion TYPO3 extension needs to be installed.`,
@@ -186,7 +205,11 @@ const updateDiagnostics = debounce((document: TextDocument, collection: Diagnost
     collection.set(document.uri, [...errors, ...deprecations]);
 }, 300);
 
-function analyzeTemplate(document: TextDocument): TemplateValidatorResult|null|false {
+/**
+ * @returns null if the template cannot or need not be analyzed, false if no binary
+ *          to analyze it could be found in its workspace folder
+ */
+async function analyzeTemplate(document: TextDocument): Promise<TemplateValidatorResult|null|false> {
     if (document.uri.scheme !== 'file' || (document.languageId !== 'fluid' && document.languageId !== 'html-fluid')) {
         return null;
     }
@@ -194,37 +217,64 @@ function analyzeTemplate(document: TextDocument): TemplateValidatorResult|null|f
     if (!workspaceFolder) {
         return null;
     }
+    const input = document.getText();
 
     // Try to get right binary from runtime cache
     if (binaryPathCache[workspaceFolder]) {
-        const data = tryAndVerifyAnalyzeCommand(binaryPathCache[workspaceFolder], document.getText(), workspaceFolder);
+        const data = await tryAndVerifyAnalyzeCommand(binaryPathCache[workspaceFolder], input, workspaceFolder);
         if (data) {
             return data;
         }
     }
 
-    // Go through binary alternatives to find the best candidate
+    // Analyses started while another one is still looking for a binary wait for it,
+    // so that the candidates are tried, and a failure is reported, only once
+    const pending = binaryDiscoveries.get(workspaceFolder);
+    if (pending) {
+        const discovery = await pending;
+        if (!discovery) {
+            return null;
+        }
+        return discovery.input === input
+            ? discovery.result
+            : tryAndVerifyAnalyzeCommand(discovery.command, input, workspaceFolder);
+    }
+
+    const discovery = discoverAnalyzeBinary(workspaceFolder, input);
+    binaryDiscoveries.set(workspaceFolder, discovery);
+    const found = await discovery;
+    // Only store the result if the configuration has not been changed in the meantime
+    if (binaryDiscoveries.get(workspaceFolder) === discovery) {
+        binaryDiscoveries.delete(workspaceFolder);
+        if (found) {
+            binaryPathCache[workspaceFolder] = found.command;
+        }
+    }
+    return found ? found.result : false;
+}
+
+/** Go through binary alternatives to find the best candidate */
+async function discoverAnalyzeBinary(workspaceFolder: string, input: string): Promise<AnalyzeBinaryDiscovery|null> {
     const candidates = binaryCandidates(workspaceFolder, config, {
         typo3: ['fluid:analyze', '--json', '--stdin'],
         fluid: ['analyze', '--json', '--stdin'],
     });
 
     for (const candidate of candidates) {
-        const data = tryAndVerifyAnalyzeCommand(candidate, document.getText(), workspaceFolder);
+        const data = await tryAndVerifyAnalyzeCommand(candidate, input, workspaceFolder);
         if (data) {
-            binaryPathCache[workspaceFolder] = candidate;
             logChannel.info(
                 `Using "${readableCommand(candidate)}" as binary to analyze templates in "${workspaceFolder}".`,
             );
-            return data;
+            return { command: candidate, input, result: data };
         }
     }
     const unavailableBinaries = candidates.map(readableCommand).join("\n");
     logChannel.error(`Unable to find suitable fluid binary for templates in "${workspaceFolder}. Usual binaries are not available: \n${unavailableBinaries}`)
-    return false;
+    return null;
 }
 
-function detectTypo3Version(document: TextDocument): number|null
+async function detectTypo3Version(document: TextDocument): Promise<number|null>
 {
     const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri)?.uri.fsPath;
     if (!workspaceFolder) {
@@ -234,12 +284,8 @@ function detectTypo3Version(document: TextDocument): number|null
     // Go through binary alternatives to find the best candidate
     // TODO optimize this to avoid duplicate calls to non-existent binaries
     for (const candidate of binaryCandidates(workspaceFolder, config, { typo3: ['--version'] })) {
-        const process = spawnSync(candidate.command, candidate.args, { cwd: workspaceFolder });
-        if (!process.stdout) {
-            continue;
-        }
-        const versionOutput = process.stdout?.toString() ?? '';
-        const versionMatch = versionOutput.match(/TYPO3 CMS ([0-9]+)\.[0-9]+\.[0-9]+/);
+        const result = await runCommand(candidate, workspaceFolder, BINARY_TIMEOUT);
+        const versionMatch = result.stdout.match(/TYPO3 CMS ([0-9]+)\.[0-9]+\.[0-9]+/);
         if (versionMatch && versionMatch[1]) {
             return Number(versionMatch[1]);
         }
@@ -247,34 +293,30 @@ function detectTypo3Version(document: TextDocument): number|null
     return null;
 }
 
-function tryAndVerifyAnalyzeCommand(command: BinaryCommand, input: string, cwd: string): TemplateValidatorResult|null {
-    const readableCommand = [command.command, ...command.args].join(' ');
-    let rawResult, rawError, errorCode;
+async function tryAndVerifyAnalyzeCommand(command: BinaryCommand, input: string, cwd: string): Promise<TemplateValidatorResult|null> {
+    const commandLine = readableCommand(command);
+    const { stdout, stderr, status } = await runCommand(command, cwd, BINARY_TIMEOUT, input);
     try {
-        const process = spawnSync(command.command, command.args, { input, cwd });
-        errorCode = process.status;
-        rawError = process.stderr?.toString();
-        rawResult = process.stdout?.toString();
-        const data = JSON.parse(rawResult);
+        const data = JSON.parse(stdout);
         if (validateFluidAnalyzeResult(data)) {
             return data;
         } else if (command.userDefined && validateFluidAnalyzeResult.errors) {
             // Log validation errors for user-defined binaries to help with debugging
             const errorMessages = validateFluidAnalyzeResult.errors.map(error => error.message).join('. ');
-            logChannel.error(`JSON validation failed while executing user-defined fluid binary "${readableCommand}" in workspace folder "${cwd}": ${errorMessages}`);
+            logChannel.error(`JSON validation failed while executing user-defined fluid binary "${commandLine}" in workspace folder "${cwd}": ${errorMessages}`);
         }
     } catch (error) {
         // Log errors for user-defined binaries to help with debugging
         if (command.userDefined) {
-            logChannel.error(`Error while executing user-defined fluid binary "${readableCommand}" in workspace folder "${cwd}": ${error}`);
+            logChannel.error(`Error while executing user-defined fluid binary "${commandLine}" in workspace folder "${cwd}": ${stderr.trim() || error}`);
         }
     }
-    if (rawResult) {
-        logChannel.debug(`Possible fluid binary "${readableCommand}" in workspace folder "${cwd}" returned invalid result: ${rawResult}`);
-    } else if (rawError) {
-        logChannel.debug(`Possible fluid binary "${readableCommand}" in workspace folder "${cwd}" returned error message: ${rawError}`);
+    if (stdout) {
+        logChannel.debug(`Possible fluid binary "${commandLine}" in workspace folder "${cwd}" returned invalid result: ${stdout}`);
+    } else if (stderr) {
+        logChannel.debug(`Possible fluid binary "${commandLine}" in workspace folder "${cwd}" returned error message: ${stderr}`);
     } else {
-        logChannel.debug(`Possible fluid binary "${readableCommand}" in workspace folder "${cwd}" returned error code: ${errorCode}`);
+        logChannel.debug(`Possible fluid binary "${commandLine}" in workspace folder "${cwd}" returned error code: ${status}`);
     }
     return null;
 }
