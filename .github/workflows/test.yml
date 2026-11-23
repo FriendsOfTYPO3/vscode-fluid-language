@@ -1,9 +1,12 @@
 name: tests
 
 on:
-  - push
-  - pull_request
-  - workflow_call
+  push:
+    # Tags are covered by the publish workflow, which calls this one
+    branches:
+      - '**'
+  pull_request:
+  workflow_call:
 
 jobs:
   test:

@@ -186,25 +186,23 @@ composer generate
 
 ### Publishing to Marketplace
 
-Publishing is only possible with access to the registered publisher in Visual Studio Code
-Marketplace as well as a personal access token with the "manage marketplace" permission.
-Details are available in
-[publishing extension](https://code.visualstudio.com/api/working-with-extensions/publishing-extension). Same goes for Open VSX, see
-[Publishing with the ovsx Command](https://github.com/EclipseFdn/open-vsx.org/wiki/Publishing-Extensions#publishing-with-the-ovsx-command).
-
-Currently, this is done locally:
+Releases are published by GitHub Actions to the Visual Studio Code Marketplace and to
+Open VSX as soon as a version tag is pushed:
 
 ```sh
 git checkout main && git pull
-npm version <TODO>
-npm run vscode-package
-npm exec vsce login friendsoftypo3
-npm run vscode-publish
+# Add the release notes for the new version to CHANGELOG.md first
+npm version <major|minor|patch>
 git push --follow-tags
 ```
 
-Packaging is already setup in GitHub Actions. Once the release workflow is finalized and
-properly tested, this can be moved to GitHub Actions as well.
+`npm version` updates `package.json` and creates a commit and a tag like `1.1.0`. The
+[publish workflow](.github/workflows/publish.yml) then lints and packages the extension,
+checks that the tag matches the version in `package.json` and publishes the same package
+to both registries.
+
+No access tokens are stored for this. Both registries support trusted publishing, which
+exchanges the workflow's GitHub OIDC token for a short-lived publish token.
 
 ### Language Server Research
 

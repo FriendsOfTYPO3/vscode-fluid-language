@@ -209,11 +209,11 @@
     "@stylistic/eslint-plugin": "^5.10.0",
     "@types/node": "^24.12.0",
     "@types/vscode": "1.105",
-    "@vscode/vsce": "^3.9.1",
+    "@vscode/vsce": "^4.1.1",
     "eslint": "^10.1.0",
     "globals": "^17.4.0",
     "jiti": "^2.6.1",
-    "ovsx": "^0.10.11",
+    "ovsx": "^1.4.0",
     "tsdown": "^0.21.7",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.57.2"
