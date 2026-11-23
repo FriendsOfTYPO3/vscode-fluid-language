@@ -8,6 +8,8 @@
   EXT:fluid_companion in v12 and v13. Can be turned off with
   `fluid.features.viewHelperDefinitions`
 - New command *Fluid: Reload ViewHelper Index*
+- Tailwind CSS IntelliSense works in Fluid (HTML) templates, if the Tailwind CSS
+  extension is installed
 - TYPO3 and Fluid binaries no longer block the editor while they run, e. g. for
   live template analysis in DDEV projects
 - New setting `fluid.bin.timeout`: seconds to wait for a binary to answer,

@@ -100,6 +100,9 @@
     "configurationDefaults": {
       "emmet.includeLanguages": {
         "html-fluid": "html"
+      },
+      "tailwindCSS.includeLanguages": {
+        "html-fluid": "html"
       }
     },
     "htmlLanguageParticipants": [
