@@ -29,6 +29,13 @@
     "vscode.html-language-features"
   ],
   "contributes": {
+    "commands": [
+      {
+        "command": "fluid.reloadViewHelperIndex",
+        "title": "Reload ViewHelper Index",
+        "category": "Fluid"
+      }
+    ],
     "configuration": {
       "title": "Fluid Templating Language",
       "type": "object",
@@ -39,15 +46,21 @@
           "default": true,
           "description": "Perform live analysis of Fluid templates with available binaries."
         },
-        "fluid.bin.useDdevIfAvailable": {
+        "fluid.features.viewHelperDefinitions": {
           "type": "boolean",
           "order": 2,
+          "default": true,
+          "description": "Resolve ViewHelpers to their PHP class, so that \"Go to Definition\" opens the ViewHelper implementation."
+        },
+        "fluid.bin.useDdevIfAvailable": {
+          "type": "boolean",
+          "order": 3,
           "default": true,
           "description": "Run binaries within DDEV if available."
         },
         "fluid.bin.typo3.path": {
           "type": "string",
-          "order": 3,
+          "order": 4,
           "default": "",
           "markdownDescription": "Custom location of TYPO3 binary. Only necessary for custom project setups. `${workspaceFolder}` is substituted with the path of the current workplace folder.\n\nExample: `path/to/typo3`."
         },
@@ -56,13 +69,13 @@
           "items": {
             "type": "string"
           },
-          "order": 4,
+          "order": 5,
           "default": [],
           "markdownDescription": "Arguments to prepend in each call to the custom TYPO3 binary. Only necessary for custom project setups. `${workspaceFolder}` is substituted with the path of the current workplace folder."
         },
         "fluid.bin.fluid.path": {
           "type": "string",
-          "order": 5,
+          "order": 6,
           "default": "",
           "markdownDescription": "Custom location of Fluid binary, only necessary for custom project setups. `${workspaceFolder}` is substituted with the path of the current workplace folder.\n\nExample: `path/to/fluid`."
         },
@@ -71,13 +84,13 @@
           "items": {
             "type": "string"
           },
-          "order": 6,
+          "order": 7,
           "default": [],
           "markdownDescription": "Arguments to prepend in each call to the custom Fluid binary. Only necessary for custom project setups. `${workspaceFolder}` is substituted with the path of the current workplace folder."
         },
         "fluid.bin.timeout": {
           "type": "number",
-          "order": 7,
+          "order": 8,
           "default": 10,
           "minimum": 1,
           "markdownDescription": "Seconds to wait for a `typo3` or `fluid` binary to answer before giving up. Increase this if the first call to a project, e. g. a DDEV project that has just been started, takes longer."

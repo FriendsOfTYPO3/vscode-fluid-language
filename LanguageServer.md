@@ -42,9 +42,12 @@ needs to be able to provide autocomplete and hover documentation for:
 Both TYPO3 and Fluid now provide the necessary insights via CLI commands to provide autocompletion
 and hover documentation via a language server:
 
-* TYPO3 v14+ provides its global namespaces via `vendor/bin/typo3 fluid:namespaces --json`, 
+* TYPO3 v14.2+ provides its global namespaces via `vendor/bin/typo3 fluid:namespaces --json`, 
   [see changelog](https://docs.typo3.org/permalink/changelog:feature-108846-1770196894);
   Backported in [fluid-companion](https://github.com/s2b/fluid-companion/).
+  Already used for "Go to Definition", see `client/src/viewHelpers.ts`. Note that it
+  answers which namespaces exist, not where their classes live, which still needs
+  Composer's `autoload_psr4.php`.
 * TYPO3 v13+ provides available ViewHelpers as XSD schema files via
   `vendor/bin/typo3 fluid:schema:generate`, currently located in `var/transient/`,
   [see changelog](https://docs.typo3.org/permalink/changelog:feature-104114-1719419341)
