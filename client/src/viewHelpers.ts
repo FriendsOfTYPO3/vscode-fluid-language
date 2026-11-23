@@ -328,7 +328,13 @@ export function createViewHelperDefinitionProvider(context: ViewHelperContext): 
                 );
                 return undefined;
             }
-            return new vscode.Location(vscode.Uri.file(file), classPosition(file));
+            const target = classPosition(file);
+            const link: vscode.LocationLink = {
+                originSelectionRange: new vscode.Range(position.line, reference.start, position.line, reference.end),
+                targetUri: vscode.Uri.file(file),
+                targetRange: new vscode.Range(target, target),
+            };
+            return [link];
         },
     };
 }
