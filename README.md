@@ -33,33 +33,6 @@ It has been tested with:
 | ViewHelper Documentation (inline) | -               | -                  |
 | ViewHelper Go to Definition       | ✅              | ✅                 |
 
-### ViewHelper Go to Definition
-
-*Go to Definition* on a ViewHelper opens the PHP class that implements it, in
-tag as well as in inline syntax, and for your own ViewHelpers just as well as
-for built-in ones:
-
-```html
-<f:link.action action="show" />   <!-- Link/ActionViewHelper.php -->
-{title -> f:format.nl2br()}       <!-- Format/Nl2brViewHelper.php -->
-<my:teaser record="{record}" />   <!-- your own ViewHelper -->
-```
-
-The global ViewHelper namespaces of a project are read from
-`typo3 fluid:namespaces --json`, so they are exactly the namespaces that Fluid
-itself resolves, including the order in which an extension overrides a core
-ViewHelper. That command ships with TYPO3 v14.2 and is backported to v12 and
-v13 by the [companion extension](https://extensions.typo3.org/extension/fluid_companion).
-The `xmlns:` and `{namespace}` declarations of the template are added on top,
-and classes are located through Composer's autoload map.
-
-The binary is looked up exactly like the one for live template analysis, see
-below, and is executed once per workspace folder. Use *Fluid: Reload ViewHelper
-Index* from the command palette to read the namespaces again, which is needed
-after a namespace has been registered by an event listener.
-
-This feature can be turned off with `fluid.features.viewHelperDefinitions`.
-
 ### Live Template Analysis
 
 The extension is able to utilize available binaries in your project to provide live
@@ -144,6 +117,35 @@ Files matching the following description are considered Fluid Text files:
     * `Resources/Private/Components/`
     * `Resources/Private/PageView/`
     * `ContentBlocks/**/templates/`
+
+### ViewHelper Go to Definition
+
+*Go to Definition* on a ViewHelper opens the PHP class that implements it, in
+tag as well as in inline syntax, and for your own ViewHelpers just as well as
+for built-in ones:
+
+```html
+<f:link.action action="show" />   <!-- Link/ActionViewHelper.php -->
+{title -> f:format.nl2br()}       <!-- Format/Nl2brViewHelper.php -->
+<my:teaser record="{record}" />   <!-- your own ViewHelper -->
+```
+
+The global ViewHelper namespaces of a project are read from
+`typo3 fluid:namespaces --json`, so they are exactly the namespaces that Fluid
+itself resolves, including the order in which an extension overrides a core
+ViewHelper. That command ships with TYPO3 v14.2 and is backported to v12 and
+v13 by the [companion extension](https://extensions.typo3.org/extension/fluid_companion).
+The `xmlns:` and `{namespace}` declarations of the template are added on top,
+and classes are located through Composer's autoload map.
+
+The binary is looked up exactly like the one for live template analysis, see
+below, and is executed once per workspace folder. Use *Fluid: Reload ViewHelper
+Index* from the command palette to read the namespaces again, which is needed
+after a namespace has been registered by an event listener.
+
+This feature can be turned off with `fluid.features.viewHelperDefinitions`.
+
+Note that this doesn't cover Fluid components, only PHP-based ViewHelpers.
 
 ## Development & Contribution
 
