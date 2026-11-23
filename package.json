@@ -3,7 +3,7 @@
   "displayName": "Fluid Template Language",
   "description": "VSCode Extension for Fluid Templating Language",
   "license": "MIT",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "publisher": "FriendsOfTYPO3",
   "icon": "extension.png",
   "bugs": {
